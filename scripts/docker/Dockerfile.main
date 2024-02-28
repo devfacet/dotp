@@ -1,0 +1,23 @@
+# Build
+FROM node:20.11.0-bookworm AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . /app
+RUN npm run build
+
+# Runtime
+FROM node:20.11.0-bookworm-slim
+WORKDIR /app
+COPY --from=build app/.next /app/.next
+COPY --from=build app/package.json /app
+COPY --from=build app/package-lock.json /app
+COPY public/ /app/public
+RUN npm ci --omit=dev
+
+RUN chown -R 1000:1000 /app
+USER 1000
+
+EXPOSE 3000
+ENV APP_HOST 0.0.0.0
+CMD ["node", "node_modules/next/dist/bin/next", "start"]

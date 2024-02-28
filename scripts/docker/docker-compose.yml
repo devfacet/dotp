@@ -1,0 +1,14 @@
+version: "3"
+
+name: dotp
+
+services:
+  app:
+    container_name: dotp-app
+    build:
+      context: ../../
+      dockerfile: scripts/docker/Dockerfile.main
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../../.env

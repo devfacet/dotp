@@ -1,0 +1,32 @@
+# Build
+FROM node:20.11.0-bookworm AS build
+WORKDIR /app
+COPY . /app
+ARG GIT_REF
+RUN git reset --hard HEAD && \
+    git clean -fd && \
+    git checkout $GIT_REF && \
+    GIT_RELEASE=$(git describe --tags --exact-match 2>>/dev/null || echo "$(git describe --abbrev=0 2>>/dev/null || echo "v0.0.0")+$(date '+%Y%m%d%H%M')") && \
+    echo "GIT_RELEASE=$GIT_RELEASE" >> .app.env && \
+    GIT_COMMIT=$(git describe --match=NEVERMATCH --always --abbrev=7 --dirty) && \
+    echo "GIT_COMMIT=$GIT_COMMIT" >> .app.env
+RUN npm install
+RUN npm run build
+
+# Runtime
+FROM node:20.11.0-bookworm-slim
+WORKDIR /app
+COPY --from=build app/.next /app/.next
+COPY --from=build app/package.json /app
+COPY --from=build app/package-lock.json /app
+COPY --from=build app/.app.env /app
+COPY public/ /app/public
+RUN npm ci --omit=dev
+
+RUN chown -R 1000:1000 /app
+USER 1000
+
+EXPOSE 3000
+ENV APP_HOST 0.0.0.0
+ENV APP_ENV_FILES /app/.app.env
+CMD ["node", "node_modules/next/dist/bin/next", "start"]

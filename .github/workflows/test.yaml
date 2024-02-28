@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  push:
+    branches: ["*"]
+    tags-ignore: ["*"]
+  pull_request:
+    branches: ["*"]
+
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: Log Level
+        default: info
+        type: choice
+        options:
+          - debug
+          - error
+          - fatal
+          - info
+          - panic
+          - warning
+      environment:
+        description: Environment
+        default: test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Tests
+        run: |
+          npm install
+          npm run build

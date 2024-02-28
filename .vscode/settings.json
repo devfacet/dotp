@@ -1,0 +1,56 @@
+{
+  "files.trimFinalNewlines": true,
+  "files.insertFinalNewline": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": true
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": true
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+  },
+  "[markdown]": {
+    "editor.wordWrap": "off"
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "build/": true,
+    ".next/": true
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "prettier.enable": false,
+  "yaml.schemas": {
+    "https://json.schemastore.org/github-workflow.json": [
+      "file://.github/workflows/autotag.yaml",
+      "file://.github/workflows/release.yaml",
+      "file://.github/workflows/test.yaml"
+    ]
+  },
+  "cSpell.words": [
+    "dotp",
+    "gamepadconnected",
+    "gamepaddisconnected"
+  ]
+}
