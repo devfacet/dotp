@@ -3,7 +3,11 @@
 import type { Metadata } from 'next'
 import { Providers } from '@/app/providers'
 import { Toaster } from 'react-hot-toast'
+import { Analytics as VercelAnalytics } from '@vercel/analytics/react'
 import '@/app/globals.css'
+
+// Init vars
+const vercelAnalyticsEnabled = process.env.VERCEL_ANALYTICS_ENABLED || false
 
 export const metadata: Metadata = {
   title: 'Duel of the Paddles',
@@ -35,6 +39,9 @@ export default function RootLayout({ children }: Readonly<{children: React.React
         <Providers>
           {children}
         </Providers>
+        {vercelAnalyticsEnabled &&
+          <VercelAnalytics />
+        }
         <Toaster toastOptions={{ duration: 10000 }} />
       </body>
     </html>
