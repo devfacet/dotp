@@ -57,7 +57,7 @@
   text-align: center;
   box-sizing: border-box;
   min-width: 120px;
-  min-height: 44px;
+  min-height: 54px;
 }
 
 .gameWrapper .playerControls {
@@ -80,7 +80,7 @@
   border-radius: 5px;
   text-align: center;
   min-height: 120px;
-  min-width: 44px;
+  min-width: 54px;
 }
 
 .gameWrapper .playerControls .item .shortcut {
@@ -107,7 +107,7 @@
   text-align: center;
   box-sizing: border-box;
   min-width: 120px;
-  min-height: 44px;
+  min-height: 54px;
 }
 
 .gameWrapper .gameControls .item .shortcut {

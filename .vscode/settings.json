@@ -49,8 +49,10 @@
     ]
   },
   "cSpell.words": [
+    "bufferutil",
     "dotp",
     "gamepadconnected",
-    "gamepaddisconnected"
+    "gamepaddisconnected",
+    "pino"
   ]
 }

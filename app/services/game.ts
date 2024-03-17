@@ -1,11 +1,12 @@
 // For the full copyright and license information, please view the LICENSE.txt file.
 
-import { Game, PlayerSide, GameState } from '@/app/lib/game'
+import { Game, GameState, PlayerAction, PlayerSide } from '@/app/lib/game'
 
 // GameServiceOptions represents game service options.
 export interface GameServiceOptions {
   canvasElement: HTMLCanvasElement
   gamepadEnabled?: boolean
+  wsAddress?: string
   onNewGame?: (game: Game) => void
   onTogglePause?: (game: Game) => void
   onGameOver?: (game: Game) => void
@@ -16,16 +17,18 @@ export class GameService {
   private canvas?: HTMLCanvasElement
   private game?: Game
   private gamepadEnabled: boolean
+  private wsAddress?: string
   private onGameOver?: (game: Game) => void
   private onNewGame?: (game: Game) => void
   private onTogglePause?: (game: Game) => void
 
   // constructor creates a new instance.
   constructor(options: GameServiceOptions) {
-    const { canvasElement, gamepadEnabled, onNewGame, onTogglePause, onGameOver } = options
+    const { canvasElement, gamepadEnabled, wsAddress, onNewGame, onTogglePause, onGameOver } = options
 
     this.canvas = canvasElement
     this.gamepadEnabled = gamepadEnabled || false
+    this.wsAddress = wsAddress
     if (onNewGame) this.onNewGame = onNewGame
     if (onTogglePause) this.onTogglePause = onTogglePause
     if (onGameOver) this.onGameOver = onGameOver
@@ -33,6 +36,7 @@ export class GameService {
     this.game = new Game({
       canvasElement: this.canvas,
       gamepadEnabled: this.gamepadEnabled,
+      wsAddress: this.wsAddress,
       onNewGame: this.onNewGame,
       onTogglePause: this.onTogglePause,
       onGameOver: this.onGameOver,
@@ -90,11 +94,8 @@ export class GameService {
     this.game.splash()
   }
 
-  // handleMouseEvent handles mouse events.
-  public handleMouseEvent(elementId: string, key: string, playerSide: PlayerSide): void {
-    if (!this.game) return
-    const paddle = this.game?.getPaddle(playerSide)
-    if (!paddle) return
-    this.game.getController().handleMouseEvent(elementId, key, paddle)
+  // handleMouseEventByElementId handles a mouse event by element id.
+  public handleMouseEventByElementId(elementId: string, playerSide: PlayerSide, action: PlayerAction): void {
+    this.game?.getController().handleMouseEventByElementId(elementId, playerSide, action)
   }
 }

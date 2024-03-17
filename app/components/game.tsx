@@ -8,14 +8,20 @@ import { Game } from '@/lib/game'
 import { MdArrowUpward, MdArrowDownward } from 'react-icons/md'
 import { useTheme } from 'next-themes'
 import { useStopwatch } from 'react-timer-hook'
-// import toast from 'react-hot-toast'
 import '@/components/game.css'
 
 // Init vars
 const isGamepadSupported = typeof window !== 'undefined' && window.navigator.getGamepads !== undefined
 
+// Props represents the component props.
+type Props = {
+  wsAddress?: string
+}
+
 // GameComponent represents a game component.
-export default function GameComponent() {
+export default function GameComponent(props: Props) {
+  const { wsAddress } = props
+
   const { setTheme } = useTheme()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameServiceRef = useRef<GameService>()
@@ -59,7 +65,7 @@ export default function GameComponent() {
 
   // onGameOver handles the game over event.
   const onGameOver = useCallback((game: Game) => {
-    console.debug('GameComponent.onTogglePause', game.getId(), game.getGameState(), game.getWinner())
+    console.debug('GameComponent.onGameOver', game.getId(), game.getGameState(), game.getWinner())
 
     if (game.getWinner() === 'dark') {
       setScore((prevScore) => ({ ...prevScore, dark: prevScore.dark + 1 }))
@@ -76,7 +82,9 @@ export default function GameComponent() {
     if (gameServiceRef.current) {
       if (document.visibilityState !== 'visible') {
         stopwatchControlsRef.current.pause()
-        gameServiceRef.current.pause()
+        if (gameServiceRef.current.getGameState() === 'running') {
+          gameServiceRef.current.pause()
+        }
       }
     }
   }, [])
@@ -92,14 +100,15 @@ export default function GameComponent() {
       gameServiceRef.current = new GameService({
         canvasElement: canvasRef.current,
         gamepadEnabled: isGamepadSupported,
+        wsAddress: wsAddress,
         onNewGame: onNewGame,
         onTogglePause: onTogglePause,
         onGameOver: onGameOver,
       })
-      gameServiceRef.current.handleMouseEvent('controlW', 'w', 'dark')
-      gameServiceRef.current.handleMouseEvent('controlS', 's', 'dark')
-      gameServiceRef.current.handleMouseEvent('controlO', 'o', 'light')
-      gameServiceRef.current.handleMouseEvent('controlL', 'l', 'light')
+      gameServiceRef.current.handleMouseEventByElementId('controlDarkUp', 'dark', 'up')
+      gameServiceRef.current.handleMouseEventByElementId('controlDarkDown', 'dark', 'down')
+      gameServiceRef.current.handleMouseEventByElementId('controlLightUp', 'light', 'up')
+      gameServiceRef.current.handleMouseEventByElementId('controlLightDown', 'light', 'down')
 
       // Splash screen
       if (showSplash) {
@@ -114,7 +123,7 @@ export default function GameComponent() {
       gameServiceRef.current?.destroy()
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [showSplash, onNewGame, onTogglePause, onGameOver, onVisibilityChange, setTheme])
+  }, [wsAddress, showSplash, onNewGame, onTogglePause, onGameOver, onVisibilityChange, setTheme])
 
   return (
     <div className="gameWrapper">
@@ -126,8 +135,8 @@ export default function GameComponent() {
       </div>
       <div className="row">
         <div className="playerControls">
-          <div id="controlW" className="item hover:cursor-pointer bg-light dark:bg-dark"><MdArrowUpward /><span className="shortcut">W</span></div>
-          <div id="controlS" className="item hover:cursor-pointer bg-light dark:bg-dark"><span className="shortcut">S</span><MdArrowDownward /></div>
+          <div id="controlDarkUp" className="item hover:cursor-pointer bg-light dark:bg-dark"><MdArrowUpward /><span className="shortcut">W</span></div>
+          <div id="controlDarkDown" className="item hover:cursor-pointer bg-light dark:bg-dark"><span className="shortcut">S</span><MdArrowDownward /></div>
         </div>
         <div className="canvasContainer">
           <canvas
@@ -145,8 +154,8 @@ export default function GameComponent() {
           />
         </div>
         <div className="playerControls">
-          <div id="controlO" className="item hover:cursor-pointer bg-light dark:bg-dark"><MdArrowUpward /><span className="shortcut">O</span></div>
-          <div id="controlL" className="item hover:cursor-pointer bg-light dark:bg-dark"><span className="shortcut">L</span><MdArrowDownward /></div>
+          <div id="controlLightUp" className="item hover:cursor-pointer bg-light dark:bg-dark"><MdArrowUpward /><span className="shortcut">O</span></div>
+          <div id="controlLightDown" className="item hover:cursor-pointer bg-light dark:bg-dark"><span className="shortcut">L</span><MdArrowDownward /></div>
         </div>
       </div>
       <div className="row">

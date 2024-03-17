@@ -5,7 +5,7 @@ import { Game, PlayerSide } from '@/lib/game'
 // PaddleOptions represents the options to create a new paddle.
 export interface PaddleOptions {
   game: Game
-  side: PlayerSide
+  playerSide: PlayerSide
   x: number
   y: number
   height?: number
@@ -23,7 +23,7 @@ export class Paddle {
 
   private options: PaddleOptions
   private game: Game
-  private side: PlayerSide
+  private playerSide: PlayerSide
   private x: number
   private y: number
   private height: number = Paddle.height
@@ -36,11 +36,11 @@ export class Paddle {
 
   // constructor creates a new instance.
   constructor(options: PaddleOptions) {
-    const { game, side, x, y, height, width, speed, color } = options
+    const { game, playerSide, x, y, height, width, speed, color } = options
 
     this.options = options
     this.game = game
-    this.side = side
+    this.playerSide = playerSide
     this.x = x
     this.y = y
     if (height !== undefined) this.height = height
@@ -91,7 +91,7 @@ export class Paddle {
 
   // getPlayerSide returns the player side of the paddle.
   public getPlayerSide(): PlayerSide {
-    return this.side
+    return this.playerSide
   }
 
   // setSpeed sets the speed of the paddle.
@@ -122,6 +122,11 @@ export class Paddle {
     if (this.moveUp) this.y -= this.speed * this.game.getSinceLastFrame()
     if (this.moveDown) this.y += this.speed * this.game.getSinceLastFrame()
 
+    this.checkBoundary()
+  }
+
+  // checkBoundary checks if the paddle is at the boundary.
+  private checkBoundary(): void {
     // Prevent paddles from going off screen
     // this.y = Math.max(this.y, 0) // top
     // this.y = Math.min(this.y, this.ctx.canvas.height - this.height) // bottom

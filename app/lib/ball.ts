@@ -1,11 +1,11 @@
 // For the full copyright and license information, please view the LICENSE.txt file.
 
-import { Game, PlayerSide } from '@/lib/game'
+import { Game, Side, PlayerSide } from '@/lib/game'
 
 // BallOptions represents the options to create a new ball.
 export interface BallOptions {
   game: Game
-  side: PlayerSide
+  playerSide: PlayerSide
   x: number
   y: number
   speedX: number
@@ -21,7 +21,8 @@ export class Ball {
 
   private options: BallOptions
   private game: Game
-  private side: PlayerSide
+  private side: Side
+  private playerSide: PlayerSide
   private x: number
   private y: number
   private speedX: number
@@ -31,11 +32,15 @@ export class Ball {
 
   // constructor creates a new instance.
   constructor(options: BallOptions) {
-    const { game, side, x, y, speedX, speedY, radius, color } = options
+    const { game, playerSide, x, y, speedX, speedY, radius, color } = options
 
     this.options = options
     this.game = game
-    this.side = side
+    this.playerSide = playerSide
+    // Light ball collides with the light grid cells and dark ball collides with the dark grid cells.
+    // Hence we launch light ball at the dark side and dark ball at the light side,
+    // so that balls can collide with the opposite side grid cells.
+    this.side = playerSide === 'dark' ? 'light' : 'dark'
     this.x = x
     this.y = y
     this.speedX = speedX
@@ -79,9 +84,14 @@ export class Ball {
     return this.speedY
   }
 
+  // getSide returns the side of the ball.
+  public getSide(): Side {
+    return this.side
+  }
+
   // getPlayerSide returns the player side of the paddle.
   public getPlayerSide(): PlayerSide {
-    return this.side
+    return this.playerSide
   }
 
   // setX sets the x position of the ball.
