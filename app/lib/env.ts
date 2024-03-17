@@ -3,8 +3,11 @@
 import 'server-only'
 import fs from 'fs'
 import path from 'path'
+import { Logger } from '@/lib/logger'
+import { fileURLToPath } from 'url'
 
 // Init vars
+const logger = Logger({ path: fileURLToPath(import.meta.url) })
 const nodeEnvCache = new Map<string, string>()
 const appEnvCache = new Map<string, string>()
 
@@ -78,7 +81,7 @@ function loadEnvFile(file?: string) {
   if (!file) return
   const filepath = path.resolve(process.cwd(), file)
   if (!fs.existsSync(filepath)) {
-    console.debug(`env file not found filepath=${filepath}`)
+    logger.error(`env file not found filepath=${filepath}`)
     return
   }
 
@@ -91,5 +94,4 @@ function loadEnvFile(file?: string) {
     const [key, value] = line.split('=', 2)
     process.env[key] = value
   })
-  console.debug(`env file loaded from filepath=${filepath}`)
 }

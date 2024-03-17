@@ -1,18 +1,24 @@
 // For the full copyright and license information, please view the LICENSE.txt file.
 
-import { Game } from '@/lib/game'
+import { Game, PlayerSide } from '@/lib/game'
 import { Ball } from '@/lib/ball'
 import { Paddle } from '@/lib/paddle'
 
 // CollisionManagerOptions represents the options to create a new collision manager.
 export interface CollisionManagerOptions {
   game: Game
+  onBallToBoundaryCollision?: (collision: BallToBoundaryCollision) => void
+  onBallToPaddleCollision?: (collision: BallToPaddleCollision) => void
+  onBallToGridCollision?: (collision: BallToGridCollision) => void
 }
 
 // CollisionManager manages collisions between game components.
 export class CollisionManager {
   private options: CollisionManagerOptions
   private game: Game
+  private onBallToBoundaryCollision?: (collision: BallToBoundaryCollision) => void
+  private onBallToPaddleCollision?: (collision: BallToPaddleCollision) => void
+  private onBallToGridCollision?: (collision: BallToGridCollision) => void
 
   // constructor creates a new instance.
   constructor(options: CollisionManagerOptions) {
@@ -20,6 +26,9 @@ export class CollisionManager {
 
     this.options = options
     this.game = game
+    this.onBallToBoundaryCollision = options.onBallToBoundaryCollision
+    this.onBallToPaddleCollision = options.onBallToPaddleCollision
+    this.onBallToGridCollision = options.onBallToGridCollision
   }
 
   // reset resets the collision manager.
@@ -38,11 +47,10 @@ export class CollisionManager {
       // Check for collision between the ball and boundaries
       const b2b = this.checkBallToBoundaryCollision(ball, ballFutureX, ballFutureY)
       if (b2b.collided) {
+        if (this.onBallToBoundaryCollision) this.onBallToBoundaryCollision(b2b)
+
         if (b2b.oppositeSide) {
-          // Note that we launch light ball at the dark side and dark ball at the light side,
-          // so that balls can collide with the opposite side boundary.
-          // Hence we reverse the player side here.
-          this.game.gameOver(ball.getPlayerSide() === 'dark' ? 'light' : 'dark')
+          this.game.gameOver(ball.getPlayerSide())
           return
         }
         if (b2b.speedX) ball.setSpeedX(b2b.speedX)
@@ -55,6 +63,8 @@ export class CollisionManager {
       for (let j = 0, m = paddles.length; j < m; j++) {
         const b2p = this.checkBallToPaddleCollision(ball, paddles[j], ballFutureX, ballFutureY)
         if (b2p.collided) {
+          if (this.onBallToPaddleCollision) this.onBallToPaddleCollision(b2p)
+
           if (b2p.speedX) ball.setSpeedX(b2p.speedX)
           if (b2p.speedY) ball.setSpeedY(b2p.speedY)
           if (b2p.futureX) ball.setX(b2p.futureX)
@@ -80,6 +90,8 @@ export class CollisionManager {
       // Check for collisions between the balls and the grid
       const b2g = this.checkBallToGridCollision(ball, ballFutureX, ballFutureY)
       if (b2g.collided) {
+        if (this.onBallToGridCollision) this.onBallToGridCollision(b2g)
+
         if (b2g.speedX) ball.setSpeedX(b2g.speedX)
         if (b2g.speedY) ball.setSpeedY(b2g.speedY)
         if (b2g.futureX) ball.setX(b2g.futureX)
@@ -87,7 +99,7 @@ export class CollisionManager {
         if (b2g.cells) {
           for (let k = 0, n = b2g.cells.length; k < n; k++) {
             const cell = b2g.cells[k]
-            this.game.getGrid().setCell(cell[0], cell[1], ball.getPlayerSide() === 'dark' ? 'light' : 'dark')
+            this.game.getGrid().setCell(cell[0], cell[1], ball.getPlayerSide())
           }
         }
       }
@@ -109,18 +121,24 @@ export class CollisionManager {
       collision.speedX = -ball.getSpeedX()
       collision.futureX = radius // for avoiding sticking
 
-      // Check if the ball is on the opposite side of the boundary
-      if (ball.getPlayerSide() === 'dark') {
+      // ballX - radius <= 0 means the ball is on the left side of the boundary (dark side)
+      if (ball.getPlayerSide() === 'light') {
         collision.oppositeSide = true
+      } else {
+        collision.ownSide = true
       }
     } else if (ballX + radius >= canvasWidth) {
       collision.collided = true
       collision.speedX = -ball.getSpeedX()
       collision.futureX = canvasWidth - radius // for avoiding sticking
 
-      // Check if the ball is on the opposite side of the boundary
-      if (ball.getPlayerSide() === 'light') {
+      // ballX + radius >= canvasWidth means the ball is on the right side of the boundary (light side)
+      // If the ball side is light (own by the dark side) then
+      // it's on the opposite side of the boundary, since we launch light ball at the dark side.
+      if (ball.getPlayerSide() === 'dark') {
         collision.oppositeSide = true
+      } else {
+        collision.ownSide = true
       }
     }
 
@@ -133,6 +151,10 @@ export class CollisionManager {
       collision.collided = true
       collision.speedY = -ball.getSpeedY()
       collision.futureY = canvasHeight - radius // for avoiding sticking
+    }
+
+    if (collision.collided) {
+      collision.playerSide = ball.getPlayerSide()
     }
 
     return collision
@@ -173,6 +195,10 @@ export class CollisionManager {
     if (!collision.collided) {
       return collision
     }
+
+    // Set the collision properties
+    collision.playerSide = ball.getPlayerSide()
+    collision.paddlePlayerSide = paddle.getPlayerSide()
 
     // Calculate the angle of the collision
     let collidePoint = ball.getY() - (paddle.getY() + paddle.getHeight() / 2)
@@ -235,11 +261,12 @@ export class CollisionManager {
 
     // Check if the ball is within the grid bounds
     if (gridY >= 0 && gridY < this.game.getGrid().getRowLength() && gridX >= 0 && gridX < this.game.getGrid().getColLength()) {
-      const cellPlayerSide = this.game.getGrid().getCell(gridX, gridY)
+      const cellSide = this.game.getGrid().getCell(gridX, gridY)
 
-      // Check for collision with a cell of the same player side
-      if (cellPlayerSide === ball.getPlayerSide()) {
+      // If the ball side is the same as the cell side then it's a collision
+      if (cellSide === ball.getSide()) {
         collision.collided = true
+        collision.playerSide = ball.getPlayerSide()
         collision.speedX = -ball.getSpeedX()
         collision.speedY = -ball.getSpeedY()
         collision.futureX = ballX - ball.getSpeedX() * this.game.getSinceLastFrame()
@@ -255,22 +282,26 @@ export class CollisionManager {
 }
 
 // BallToBoundaryCollision represents a collision between a ball and a boundary.
-type BallToBoundaryCollision = {
+export type BallToBoundaryCollision = {
   collided: boolean
   speedX?: number
   speedY?: number
   futureX?: number
   futureY?: number
+  playerSide?: PlayerSide
   oppositeSide?: boolean
+  ownSide?: boolean
 }
 
 // BallToPaddleCollision represents a collision between a ball and a paddle.
-type BallToPaddleCollision = {
+export type BallToPaddleCollision = {
   collided: boolean
   speedX?: number
   speedY?: number
   futureX?: number
   futureY?: number
+  playerSide?: PlayerSide
+  paddlePlayerSide?: PlayerSide
 }
 
 // BallToBallCollision represents a collision between two balls.
@@ -283,11 +314,12 @@ type BallToBallCollision = {
 }
 
 // BallToGridCollision represents a collision between a ball and a grid cell.
-type BallToGridCollision = {
+export type BallToGridCollision = {
   collided: boolean
   speedX?: number
   speedY?: number
   futureX?: number
   futureY?: number
   cells?: number[][]
+  playerSide?: PlayerSide
 }

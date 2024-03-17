@@ -2,8 +2,7 @@
 
 // TODO: Implement Controller interface for keyboard and mouse controllers.
 
-import { Game, PlayerSide } from '@/lib/game'
-import { Paddle } from '@/lib/paddle'
+import { Game, PlayerSide, PlayerAction } from '@/lib/game'
 
 // ControllerManagerOptions represents the options for the controller manager.
 export type ControllerManagerOptions = {
@@ -24,6 +23,7 @@ export class ControllerManager {
   private gamepadEnabled: boolean
   private controllers: Map<string, Controller> = new Map()
   private controllersInterval: NodeJS.Timeout | undefined
+  private playerControls: PlayerControls
   private onNewGame?: (game: Game) => void
   private onTogglePause?: (game: Game) => void
   private onControllerConnected?: (game: Game, controller: Controller) => void
@@ -36,6 +36,7 @@ export class ControllerManager {
     this.options = options
     this.game = game
     this.gamepadEnabled = gamepadEnabled || false
+    this.playerControls = { dark: { up: 'w', down: 's' }, light: { up: 'o', down: 'l' } }
     this.onNewGame = onNewGame
     this.onTogglePause = onTogglePause
     this.onControllerConnected = onControllerConnected
@@ -95,7 +96,9 @@ export class ControllerManager {
 
   // newGame starts a new game.
   private newGame(): void {
-    this.game.stop()
+    if (this.game.getGameState() === 'running') {
+      this.game.stop()
+    }
     this.game.start()
     if (this.onNewGame) this.onNewGame(this.game)
   }
@@ -111,29 +114,31 @@ export class ControllerManager {
     return this.controllers.get('g' + gamepad.index)
   }
 
+  // movePaddleByPlayerSide moves the paddle by player side.
+  public movePaddle(side: PlayerSide, up: boolean, down: boolean): void {
+    this.game.getPaddle(side).setMovement(up, down)
+  }
+
   // setPaddleMovement sets the paddle movement based on the keys pressed.
   private setPaddleMovement() {
     // Update paddles
-    this.game.getPaddle('dark').setMovement(this.keysPressed.has('w'), this.keysPressed.has('s'))
-    this.game.getPaddle('light').setMovement(this.keysPressed.has('o'), this.keysPressed.has('l'))
+    const sides: PlayerSide[] = ['dark', 'light']
+    sides.forEach((side: PlayerSide) => {
+      this.game.getPaddle(side).setMovement(
+        this.keysPressed.has(this.playerControls[side].up),
+        this.keysPressed.has(this.playerControls[side].down)
+      )
+    })
   }
 
   // startContinuousMovement starts continuous movement for a paddle.
-  private startContinuousMovement(key: string, paddle: Paddle): void {
-    if (paddle.getPlayerSide() === 'dark'){
-      this.game.getPaddle('dark').setMovement(key === 'w', key === 's')
-    } else {
-      this.game.getPaddle('light').setMovement(key === 'o', key === 'l')
-    }
+  private startContinuousMovement(side: PlayerSide, action: PlayerAction): void {
+    this.game.getPaddle(side).setMovement(action === 'up', action === 'down')
   }
 
   // stopContinuousMovement stops continuous movement for a paddle.
-  private stopContinuousMovement(key: string, paddle: Paddle): void {
-    if (paddle.getPlayerSide() === 'dark'){
-      this.game.getPaddle('dark').setMovement(false, false)
-    } else {
-      this.game.getPaddle('light').setMovement(false, false)
-    }
+  private stopContinuousMovement(side: PlayerSide): void {
+    this.game.getPaddle(side).setMovement(false, false)
   }
 
   // handleKeyDown handles key down events.
@@ -163,24 +168,26 @@ export class ControllerManager {
     this.setPaddleMovement()
   }
 
-  // handleMouseEvent handles mouse events.
-  public handleMouseEvent(elementId: string, key: string, paddle: Paddle): void {
+  // handleMouseEventByElementId handles a mouse event by element id.
+  public handleMouseEventByElementId(elementId: string, playerSide: PlayerSide, action: PlayerAction): void {
     const element = document.getElementById(elementId)
     if (!element) return
+    const paddle = this.game?.getPaddle(playerSide)
+    if (!paddle) return
 
     // Initialize event listeners
-    const mouseDownListener = () => this.startContinuousMovement(key, paddle)
-    const mouseUpListener = () => this.stopContinuousMovement(key, paddle)
-    const mouseLeaveListener = () => this.stopContinuousMovement(key, paddle)
+    const mouseDownListener = () => this.startContinuousMovement(paddle.getPlayerSide(), action)
+    const mouseUpListener = () => this.stopContinuousMovement(paddle.getPlayerSide())
+    const mouseLeaveListener = () => this.stopContinuousMovement(paddle.getPlayerSide())
     const touchStartListener = (e: Event) => {
       if (e.cancelable) {
         // Prevent scrolling and ensure touch is used for control
         e.preventDefault()
       }
-      this.startContinuousMovement(key, paddle)
+      this.startContinuousMovement(paddle.getPlayerSide(), action)
     }
     const touchEndListener = () => {
-      this.stopContinuousMovement(key, paddle)
+      this.stopContinuousMovement(paddle.getPlayerSide())
     }
 
     // Add event listeners
@@ -292,6 +299,15 @@ export class ControllerManager {
       this.controllersInterval = undefined
     }
   }
+}
+
+// PlayerControls represents player controls.
+type PlayerControls = {
+  // eslint-disable-next-line no-unused-vars
+  [key in PlayerSide]: {
+    up: string;
+    down: string;
+  };
 }
 
 // ControllerType represents a controller type.

@@ -1,15 +1,22 @@
 // For the full copyright and license information, please view the LICENSE.txt file.
 
-import { CollisionManager } from '@/lib/collision'
+import { CollisionManager, BallToBoundaryCollision, BallToPaddleCollision, BallToGridCollision } from '@/lib/collision'
 import { ControllerManager } from '@/lib/controller'
 import { Grid } from '@/lib/grid'
 import { Ball } from '@/lib/ball'
 import { Paddle } from '@/lib/paddle'
 import { randomNumber } from '@/lib/numbers'
+import { Msg } from '@/lib/wss'
 import { ulid } from 'ulidx'
+
+// Side represents a side.
+export type Side = 'dark' | 'light'
 
 // PlayerSide represents a player side.
 export type PlayerSide = 'dark' | 'light'
+
+// PlayerAction represents a player action.
+export type PlayerAction = '' | 'up' | 'down'
 
 // GameState represents the game state.
 export type GameState = 'initial' | 'running' | 'paused' | 'stopped' | 'over'
@@ -18,6 +25,7 @@ export type GameState = 'initial' | 'running' | 'paused' | 'stopped' | 'over'
 export interface GameOptions {
   canvasElement: HTMLCanvasElement
   gamepadEnabled?: boolean
+  wsAddress?: string
   onNewGame?: (game: Game) => void
   onTogglePause?: (game: Game) => void
   onGameOver?: (game: Game) => void
@@ -29,9 +37,11 @@ export class Game {
   static colorBlue = '#2E67F8'
   static colorGreen = '#22BA1A'
   static colorDark = '#202020'
-  static colorDarkPaddle = '#C8C8C8'
+  static colorDarkSidePaddle = '#C8C8C8'
+  static colorDarkSideBall = '#E0E0E0'
   static colorLight = '#E0E0E0'
-  static colorLightPaddle = '#3A3A3A'
+  static colorLightSidePaddle = '#3A3A3A'
+  static colorLightSideBall = '#202020'
 
   static ballSpeed = 300
   static paddleSpeed = 500
@@ -41,6 +51,8 @@ export class Game {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
   private gamepadEnabled: boolean
+  private wsAddress?: string
+  private ws?: WebSocket
   private onNewGame?: (game: Game) => void
   private onTogglePause?: (game: Game) => void
   private onGameOver?: (game: Game) => void
@@ -59,7 +71,7 @@ export class Game {
 
   // constructor creates a new instance.
   constructor(options: GameOptions) {
-    const { canvasElement, gamepadEnabled, onNewGame, onTogglePause, onGameOver } = options
+    const { canvasElement, gamepadEnabled, wsAddress, onNewGame, onTogglePause, onGameOver } = options
 
     this.id = ulid()
     this.canvas = canvasElement
@@ -69,67 +81,132 @@ export class Game {
       throw new Error(`could not get 2D context: ${e.message || e}`)
     }
     this.gamepadEnabled = gamepadEnabled || false
+    this.wsAddress = wsAddress
     if (onNewGame) this.onNewGame = onNewGame
     if (onTogglePause) this.onTogglePause = onTogglePause
     if (onGameOver) this.onGameOver = onGameOver
 
     // Initialize the main game components
-    this.collisionManager = new CollisionManager({ game: this })
+    this.collisionManager = new CollisionManager({
+      game: this,
+      onBallToBoundaryCollision: this.onBallToBoundaryCollision,
+      onBallToPaddleCollision: this.onBallToPaddleCollision,
+      onBallToGridCollision: this.onBallToGridCollision,
+    })
     this.controllerManager = new ControllerManager({ game: this, gamepadEnabled: this.gamepadEnabled, onNewGame: this.onNewGame, onTogglePause: this.onTogglePause })
     this.grid = new Grid({ game: this, width: this.canvas.width, height: this.canvas.height, cellSize: Game.cellSize })
 
     // Initialize the light paddle on the dark side against the light side
-    // Light ball collides with the light grid cells, hence they are on the dark side.
     this.paddles.push(new Paddle({
       game: this,
-      side: 'light',
-      x: this.canvas.width - Game.cellSize * 2,
+      playerSide: 'dark',
+      x: Game.cellSize,
       y: this.canvas.height / 2 - 50,
-      width: Game.cellSize,
       height: Game.cellSize * 5,
       speed: Game.paddleSpeed,
-      color: Game.colorLightPaddle,
+      color: Game.colorDarkSidePaddle,
     }))
-    // Initialize the light ball at the dark side and moving towards the light side
+    // Initialize the light ball at the dark player side and moving towards the light side
     this.balls.push(new Ball({
       game: this,
-      side: 'light',
+      playerSide: 'dark',
       x: this.canvas.width / 4,
       y: randomNumber(Game.cellSize, this.canvas.height - Game.cellSize),
       speedX: Game.ballSpeed,
       speedY: Game.ballSpeed,
       radius: Game.cellSize / 2,
-      color: Game.colorLight,
+      color: Game.colorDarkSideBall,
     }))
 
     // Initialize the dark paddle on the light side against the dark side
-    // Dark ball collides with the dark grid cells, hence they are on the light side.
     this.paddles.push(new Paddle({
       game: this,
-      side: 'dark',
-      x: Game.cellSize,
+      playerSide: 'light',
+      x: this.canvas.width - Game.cellSize * 2,
       y: this.canvas.height / 2 - 50,
+      width: Game.cellSize,
       height: Game.cellSize * 5,
       speed: Game.paddleSpeed,
-      color: Game.colorDarkPaddle,
+      color: Game.colorLightSidePaddle,
     }))
-    // Initialize the dark ball at the light side and moving towards the dark side
+    // Initialize the dark ball at the light player side and moving towards the dark side
     this.balls.push(new Ball({
       game: this,
-      side: 'dark',
+      playerSide: 'light',
       x: this.canvas.width / 4 * 3,
       y: randomNumber(Game.cellSize, this.canvas.height - Game.cellSize),
       speedX: -Game.ballSpeed,
       speedY: -Game.ballSpeed,
       radius: Game.cellSize / 2,
-      color: Game.colorDark,
+      color: Game.colorLightSideBall,
     }))
+
+    // Connect to the WebSocket server
+    if (this.wsAddress) {
+      try {
+        this.ws = new WebSocket(this.wsAddress)
+        this.ws.onopen = () => {
+          console.debug(`websocket connection opened: ${this.wsAddress}`)
+        }
+        this.ws.onerror = (event: Event) => {
+          console.error(`websocket error: ${event}`)
+        }
+        this.ws.onclose = (event: CloseEvent) => {
+          console.debug(`websocket connection closed: ${event.code} ${event.reason}`)
+        }
+        this.ws.onmessage = (event: MessageEvent) => {
+          try {
+            let debug = false
+            const msg: Msg = JSON.parse(event.data)
+            switch (msg?.command) {
+              case 'move':
+                if (!msg.move?.playerSide) {
+                  break
+                }
+                this.controllerManager.movePaddle(msg.move.playerSide, msg.move?.up || false, msg.move?.down || false)
+                break
+              case 'start':
+                this.start()
+                debug = true
+                break
+              case 'stop':
+                this.stop()
+                debug = true
+                break
+              case 'pause':
+                this.pause()
+                debug = true
+                break
+              case 'resume':
+                this.resume()
+                debug = true
+                break
+              case 'restart':
+                this.stop()
+                this.start()
+                debug = true
+                break
+            }
+            if (debug) console.debug(`websocket message: ${JSON.stringify(msg)}`)
+          } catch (e: any) {
+            // For now ignore any unknown/invalid messages.
+          }
+        }
+      } catch (e: any) {
+        console.error(`could not connect to WebSocket server: ${e.message || e}`)
+      }
+    }
   }
 
   // destroy destroys the game.
   public destroy(): void {
     this.stop()
     this.controllerManager.destroy()
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.close()
+    } else if (this.ws?.readyState === WebSocket.CONNECTING) {
+      this.ws.onopen = () => this.ws?.close()
+    }
   }
 
   // getId returns the game id.
@@ -218,6 +295,9 @@ export class Game {
     if (this.gameState === 'running') return
     this.reset()
     this.gameState = 'running'
+
+    this.wsSend('{"event": "start"}', true)
+
     requestAnimationFrame(this.gameLoop)
   }
 
@@ -225,6 +305,9 @@ export class Game {
   public stop(): void {
     if (this.gameState === 'stopped') return
     this.gameState = 'stopped'
+
+    this.wsSend('{"event": "stop"}', true)
+
     cancelAnimationFrame(this.animationFrameId)
   }
 
@@ -232,6 +315,9 @@ export class Game {
   public pause(): void {
     if (this.gameState === 'paused') return
     this.gameState = 'paused'
+
+    this.wsSend('{"event": "pause"}', true)
+
     cancelAnimationFrame(this.animationFrameId)
   }
 
@@ -240,6 +326,9 @@ export class Game {
     if (this.gameState === 'running') return
     this.lastFrameTime = performance.now() // reset last frame time
     this.gameState = 'running'
+
+    this.wsSend('{"event": "resume"}', true)
+
     requestAnimationFrame(this.gameLoop)
   }
 
@@ -259,6 +348,8 @@ export class Game {
     this.winner = playerSide
     this.stop()
 
+    this.wsSend(`{"event": "gameOver", "winner": "${playerSide}"}`, true)
+
     if (this.onGameOver) this.onGameOver(this)
   }
 
@@ -272,7 +363,34 @@ export class Game {
 
     this.update() // update the game state
     this.draw() // draw the next frame
+
+    // Send the canvas pixels in base64
+    this.wsSend(`{"event": "canvas", "data": "${this.canvas.toDataURL()}"}`, false)
+
     this.animationFrameId = requestAnimationFrame(this.gameLoop) // request next frame
+  }
+
+  // onBallToBoundaryCollision handles the ball to boundary collision.
+  private onBallToBoundaryCollision = (collision: BallToBoundaryCollision): void => {
+    this.wsSend(`{"event": "collision", "collision": {"kind": "ballToBoundary", "playerSide": "${collision.playerSide}", "oppositeSide": ${collision.oppositeSide || false}, "ownSide": ${collision.ownSide || false}}}`)
+  }
+
+  // onBallToPaddleCollision handles the ball to paddle collision.
+  private onBallToPaddleCollision = (collision: BallToPaddleCollision): void => {
+    this.wsSend(`{"event": "collision", "collision": {"kind": "ballToPaddle", "playerSide": "${collision.playerSide}", "paddlePlayerSide": "${collision.paddlePlayerSide}"}}`)
+  }
+
+  // onBallToGridCollision handles the ball to grid collision.
+  private onBallToGridCollision = (collision: BallToGridCollision): void => {
+    this.wsSend(`{"event": "collision", "collision": {"kind": "ballToGrid", "playerSide": "${collision.playerSide}"}}`)
+  }
+
+  // wsSend sends a message to the WebSocket server.
+  public wsSend(msg: string, debug: boolean = false): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      if (debug) console.debug(`websocket send: ${msg}`)
+      this.ws.send(msg)
+    }
   }
 
   // update updates the game components.
