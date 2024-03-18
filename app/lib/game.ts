@@ -113,7 +113,7 @@ export class Game {
       x: this.canvas.width / 4,
       y: randomNumber(Game.cellSize, this.canvas.height - Game.cellSize),
       speedX: Game.ballSpeed,
-      speedY: Game.ballSpeed,
+      speedY: Math.random() < 0.5 ? Game.ballSpeed : -Game.ballSpeed,
       radius: Game.cellSize / 2,
       color: Game.colorDarkSideBall,
     }))
@@ -136,7 +136,7 @@ export class Game {
       x: this.canvas.width / 4 * 3,
       y: randomNumber(Game.cellSize, this.canvas.height - Game.cellSize),
       speedX: -Game.ballSpeed,
-      speedY: -Game.ballSpeed,
+      speedY: Math.random() < 0.5 ? Game.ballSpeed : -Game.ballSpeed,
       radius: Game.cellSize / 2,
       color: Game.colorLightSideBall,
     }))
@@ -271,6 +271,7 @@ export class Game {
     for (const ball of this.balls) {
       ball.reset()
       ball.setY(randomNumber(Game.cellSize, this.canvas.height - Game.cellSize))
+      ball.setSpeedY(Math.random() < 0.5 ? Game.ballSpeed : -Game.ballSpeed)
     }
 
     // Clear the canvas
