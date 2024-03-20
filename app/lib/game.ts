@@ -383,7 +383,7 @@ export class Game {
 
   // onBallToGridCollision handles the ball to grid collision.
   private onBallToGridCollision = (collision: BallToGridCollision): void => {
-    this.wsSend(`{"event": "collision", "collision": {"kind": "ballToGrid", "playerSide": "${collision.playerSide}"}}`)
+    this.wsSend(`{"event": "collision", "collision": {"kind": "ballToGrid", "playerSide": "${collision.playerSide}", "hops": ${collision.hops || 0}, "hits": ${collision.hits || 0}, "cells": ${JSON.stringify(collision.cells) || []}}}`)
   }
 
   // wsSend sends a message to the WebSocket server.

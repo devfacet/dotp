@@ -47,6 +47,7 @@ export class CollisionManager {
       // Check for collision between the ball and boundaries
       const b2b = this.checkBallToBoundaryCollision(ball, ballFutureX, ballFutureY)
       if (b2b.collided) {
+        ball.increaseHops()
         if (this.onBallToBoundaryCollision) this.onBallToBoundaryCollision(b2b)
 
         if (b2b.oppositeSide) {
@@ -63,7 +64,11 @@ export class CollisionManager {
       for (let j = 0, m = paddles.length; j < m; j++) {
         const b2p = this.checkBallToPaddleCollision(ball, paddles[j], ballFutureX, ballFutureY)
         if (b2p.collided) {
+          if (b2p.playerSide === b2p.paddlePlayerSide) {
+            ball.increaseHits()
+          }
           if (this.onBallToPaddleCollision) this.onBallToPaddleCollision(b2p)
+          ball.resetHops()
 
           if (b2p.speedX) ball.setSpeedX(b2p.speedX)
           if (b2p.speedY) ball.setSpeedY(b2p.speedY)
@@ -90,7 +95,11 @@ export class CollisionManager {
       // Check for collisions between the balls and the grid
       const b2g = this.checkBallToGridCollision(ball, ballFutureX, ballFutureY)
       if (b2g.collided) {
+        b2g.hops = ball.getHops()
+        b2g.hits = ball.getHits()
         if (this.onBallToGridCollision) this.onBallToGridCollision(b2g)
+        ball.resetHops()
+        ball.resetHits()
 
         if (b2g.speedX) ball.setSpeedX(b2g.speedX)
         if (b2g.speedY) ball.setSpeedY(b2g.speedY)
@@ -322,4 +331,6 @@ export type BallToGridCollision = {
   futureY?: number
   cells?: number[][]
   playerSide?: PlayerSide
+  hops?: number
+  hits?: number
 }
