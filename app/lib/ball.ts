@@ -29,6 +29,8 @@ export class Ball {
   private speedY: number
   private radius: number = Ball.radius
   private color: string | CanvasGradient | CanvasPattern = Ball.color
+  private hops: number = 0
+  private hits: number = 0
 
   // constructor creates a new instance.
   constructor(options: BallOptions) {
@@ -57,6 +59,8 @@ export class Ball {
     this.speedY = this.options.speedY
     this.radius = this.options.radius || Ball.radius
     this.color = this.options.color || Ball.color
+    this.hops = 0
+    this.hits = 0
   }
 
   // getX returns the x position of the ball.
@@ -129,6 +133,36 @@ export class Ball {
   // setColor sets the color of the ball.
   public setColor(color: string | CanvasGradient | CanvasPattern): void {
     this.color = color
+  }
+
+  // getHops returns the number of hops.
+  public getHops(): number {
+    return this.hops
+  }
+
+  // increaseHops increases the number of hops.
+  public increaseHops(): void {
+    this.hops++
+  }
+
+  // resetHops resets the number of hops.
+  public resetHops(): void {
+    this.hops = 0
+  }
+
+  // getHits returns the number of hits.
+  public getHits(): number {
+    return this.hits
+  }
+
+  // increaseHits increases the number of hits.
+  public increaseHits(): void {
+    this.hits++
+  }
+
+  // resetHits resets the number of hits.
+  public resetHits(): void {
+    this.hits = 0
   }
 
   // draw draws the ball on the canvas.
