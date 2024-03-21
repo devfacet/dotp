@@ -378,7 +378,7 @@ export class Game {
 
   // onBallToPaddleCollision handles the ball to paddle collision.
   private onBallToPaddleCollision = (collision: BallToPaddleCollision): void => {
-    this.wsSend(`{"event": "collision", "collision": {"kind": "ballToPaddle", "playerSide": "${collision.playerSide}", "paddlePlayerSide": "${collision.paddlePlayerSide}"}}`)
+    this.wsSend(`{"event": "collision", "collision": {"kind": "ballToPaddle", "playerSide": "${collision.playerSide}", "paddlePlayerSide": "${collision.paddlePlayerSide}", "collisionPoint": ${collision.collisionPoint || 0}}}`)
   }
 
   // onBallToGridCollision handles the ball to grid collision.
