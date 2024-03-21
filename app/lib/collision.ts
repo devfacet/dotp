@@ -209,11 +209,17 @@ export class CollisionManager {
     collision.playerSide = ball.getPlayerSide()
     collision.paddlePlayerSide = paddle.getPlayerSide()
 
-    // Calculate the angle of the collision
-    let collidePoint = ball.getY() - (paddle.getY() + paddle.getHeight() / 2)
-    collidePoint = collidePoint / (paddle.getHeight() / 2)
+    // Calculate the collision point
+    collision.collisionPoint = ball.getY() - paddle.getY()
+
+    // Calculate the normalized collision point for determining the angle
+    // If it's a negative number, the ball is hitting the top half of the paddle.
+    // If it's a positive number, the ball is hitting the bottom half of the paddle.
+    // -1 represents the top edge of the paddle, 1 represents the bottom edge of the paddle
+    let collisionPoint = ball.getY() - (paddle.getY() + paddle.getHeight() / 2)
+    collisionPoint = collisionPoint / (paddle.getHeight() / 2)
     // Convert the angle to radians
-    const angleRad = (Math.PI / 3) * collidePoint
+    const angleRad = (Math.PI / 3) * collisionPoint
     // Calculate the magnitude of the current velocity
     const magnitude = Math.sqrt(ball.getSpeedX() * ball.getSpeedX() + ball.getSpeedY() * ball.getSpeedY())
 
@@ -311,6 +317,7 @@ export type BallToPaddleCollision = {
   futureY?: number
   playerSide?: PlayerSide
   paddlePlayerSide?: PlayerSide
+  collisionPoint?: number
 }
 
 // BallToBallCollision represents a collision between two balls.
